@@ -1,3 +1,4 @@
+
 export default {
   async fetch(request, env) {
     if (request.method === "GET") {
@@ -7,6 +8,9 @@ export default {
     if (request.method === "POST") {
       try {
         const update = await request.json();
+
+        // Показываем, что именно Telegram отправил боту
+        console.log("TELEGRAM UPDATE:", JSON.stringify(update));
 
         if (update.message?.text?.startsWith("/start")) {
           const chatId = update.message.chat.id;
