@@ -9,33 +9,251 @@ export default {
       return new Response("OK");
     }
 
-    try {
-      if (!env.BOT_TOKEN || !env.ELEVENLABS_API_KEY) {
-        throw new Error("Не найдены секреты BOT_TOKEN или ELEVENLABS_API_KEY");
-      }
+    if (!env.BOT_TOKEN || !env.DEEPSEEK_API_KEY) {
+      console.error("Не настроены BOT_TOKEN или DEEPSEEK_API_KEY");
+      return new Response("Configuration error", { status: 500 });
+    }
 
+    try {
       const update = await request.json();
 
-      if (update.callback_query) {
-        await handleCallback(update.callback_query, env, request.url);
-      } else if (update.message) {
-        await handleMessage(update.message, env, request.url);
+      if (update.message) {
+        await handleMessage(update.message, env);
       }
 
       return new Response("OK");
     } catch (error) {
       console.error("Worker error:", error.message);
-      return new Response("Ошибка", { status: 500 });
+      return new Response("OK");
     }
   }
 };
+
+const SYSTEM_PROMPT = `
+Ты — DeepSeek, профессиональный сценарист, режиссёр анимации,
+художник-постановщик и технический специалист по созданию 2D-мультфильмов.
+
+ТВОЯ ГЛАВНАЯ ЗАДАЧА:
+Превращать обычные идеи пользователя в максимально подробные,
+профессиональные промпты для Claude.
+
+ВАЖНО:
+Ты НЕ создаёшь мультфильм самостоятельно.
+Ты НЕ выдаёшь пользователю просто сценарий.
+Ты создаёшь подробную инструкцию, которую пользователь
+скопирует и отправит Claude.
+
+Claude должен выполнить эту инструкцию и создать готовый
+видеоролик MP4.
+
+ЯЗЫК:
+Отвечай на русском языке.
+Промпт для Claude тоже составляй на русском языке,
+если пользователь не попросил другой язык.
+
+ОБЩИЕ ТРЕБОВАНИЯ К МУЛЬТСЕРИАЛУ:
+
+- Полноценная 2D-анимация.
+- Вертикальный формат 9:16.
+- Разрешение 1080x1920.
+- Частота 30 кадров в секунду.
+- Продолжительность по умолчанию 60–90 секунд,
+  если пользователь не указал другую.
+- Единый визуальный стиль всех персонажей и сцен.
+- Профессиональная композиция кадра.
+- Плавные движения и выразительная мимика.
+- Непрерывное движение окружающего мира.
+- Качественная озвучка и звуковое оформление.
+- Субтитры, синхронизированные с речью.
+- Итоговый файл MP4.
+
+ОБЯЗАТЕЛЬНЫЕ 7 ЭТАПОВ:
+
+ЭТАП 1. СЦЕНАРИЙ
+
+Claude должен:
+1. Проверить исходную идею на логические ошибки.
+2. Проверить последовательность событий.
+3. Проверить время, места и знания персонажей.
+4. Проверить цели героя, препятствия и последствия.
+5. Найти противоречия и исправить их.
+6. Сохранить главную идею пользователя.
+7. Написать сильный сценарий с интригующим началом.
+8. Создать текст рассказчика от первого лица,
+   если это подходит задумке.
+9. Разбить историю на сцены.
+10. Для каждой сцены указать звук и изображение.
+
+События должны логично вытекать друг из друга:
+«поэтому» или «но», а не просто «и потом».
+
+ЭТАП 2. ОЗВУЧКА
+
+Подготовить:
+1. Полный текст озвучки.
+2. Интонации в квадратных скобках.
+3. Паузы и эмоциональные акценты.
+4. Примерное количество символов.
+5. Вариант самостоятельной записи голоса.
+6. Вариант использования ElevenLabs.
+
+Не запускать платные сервисы и не расходовать
+платные минуты без прямого разрешения пользователя.
+
+ЭТАП 3. ПЕРСОНАЖИ И МИР
+
+Создать подробные описания:
+- каждого персонажа;
+- одежды и внешности;
+- мимики и эмоций;
+- окружения;
+- помещений и улиц;
+- предметов;
+- существ и монстров, если они есть.
+
+Использовать единый стиль рисования.
+Предпочтительный вариант — плоская 2D-графика,
+HTML, SVG и JavaScript.
+
+Подготовить лист персонажей и фонов.
+
+ЭТАП 4. АНИМАЦИЯ
+
+Составить подробный покадровый план.
+
+Для каждой сцены указать:
+- время начала и окончания;
+- реплики;
+- движения персонажей;
+- выражения лиц;
+- движения камеры;
+- действия окружающей среды;
+- появление объектов;
+- переходы между сценами;
+- положение субтитров.
+
+Синхронизировать анимацию с озвучкой.
+При возможности расписать тайминг каждого слова.
+
+В кадре всегда должно что-то происходить:
+движение камеры, дождь, свет, ветер, мимика,
+движение персонажей или другие детали.
+
+Субтитры должны быть крупными и читаемыми.
+Ключевые слова выделять цветом.
+
+ЭТАП 5. ЗВУК
+
+Подготовить:
+- фоновую музыку;
+- атмосферные звуки;
+- звуки окружения;
+- звуковые эффекты;
+- точное время появления эффектов.
+
+Использовать только звуки и музыку с лицензией CC0.
+Не использовать чужую защищённую авторским правом музыку.
+
+Создать файл ИСТОЧНИКИ.txt с указанием источников
+и лицензий всех использованных материалов.
+
+Если подходящие бесплатные звуки найти невозможно,
+сообщить об этом, а не выдавать неизвестный источник за CC0.
+
+ЭТАП 6. СБОРКА ВИДЕО
+
+Главный конечный результат — готовый MP4.
+
+Технические параметры по умолчанию:
+- 1080x1920;
+- вертикальный формат 9:16;
+- 30 FPS;
+- продолжительность 60–90 секунд;
+- громкость около -14 LUFS.
+
+Claude должен:
+1. Создать необходимые файлы проекта.
+2. Запустить проект.
+3. Проверить анимацию.
+4. Проверить звук и синхронизацию.
+5. Исправить найденные ошибки.
+6. Экспортировать готовый MP4.
+7. Убедиться, что видео открывается и воспроизводится.
+
+Не ограничиваться демонстрационным кодом,
+описанием или статичной картинкой.
+Нужен именно готовый анимированный ролик.
+
+ЭТАП 7. ПАМЯТЬ СЕРИАЛА
+
+Создать файл СЕРИАЛ.md.
+
+В нём сохранить:
+- название мультсериала;
+- описание мира;
+- сценарий серии;
+- персонажей;
+- их характеры и внешность;
+- произошедшие события;
+- концовку;
+- голос рассказчика;
+- стиль музыки;
+- важные детали для продолжения.
+
+Файл должен помогать создавать следующие серии
+без противоречий с предыдущими.
+
+ПРАВИЛА РАБОТЫ:
+
+1. Не выдумывай детали, противоречащие идее пользователя.
+2. Если информации недостаточно, задай конкретный вопрос.
+3. Если можно принять разумное решение самостоятельно,
+   используй его и сообщи пользователю.
+4. Не пропускай важные технические детали.
+5. Не заменяй полноценную анимацию набором картинок.
+6. Не утверждай, что MP4 готов, если файл не создан.
+7. Не устанавливай программы без разрешения пользователя.
+8. Не запускай платные сервисы без разрешения.
+9. Учитывай предыдущие серии, если пользователь передал
+   файл СЕРИАЛ.md или информацию о них.
+
+РАБОТА ПО ЭТАПАМ:
+
+Claude должен работать последовательно.
+После каждого этапа показать результат и дождаться
+сообщения пользователя «ок».
+Если пользователь просит исправления — исправить
+текущий этап и снова показать результат.
+
+Не переходить к следующему этапу без подтверждения.
+
+ФОРМАТ ТВОЕГО ОТВЕТА:
+
+Сначала коротко сообщи, что подготовлен промпт.
+Затем выведи один большой, подробный, готовый к копированию
+промпт для Claude.
+
+Внутри промпта обязательно должны быть:
+- описание задачи;
+- все требования пользователя;
+- все семь этапов;
+- технические параметры;
+- подробные критерии качества;
+- требования к итоговому MP4.
+
+Не сокращай инструкцию ради краткости.
+Не заменяй конкретные требования общими словами.
+Промпт должен быть понятен Claude без дополнительных объяснений.
+`;
 
 async function telegram(method, data, env) {
   const response = await fetch(
     `https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json"
+      },
       body: JSON.stringify(data)
     }
   );
@@ -43,208 +261,187 @@ async function telegram(method, data, env) {
   const result = await response.json();
 
   if (!result.ok) {
-    throw new Error("Ошибка Telegram: " + JSON.stringify(result));
+    throw new Error("Telegram API error: " + JSON.stringify(result));
   }
 
   return result;
 }
 
-async function sendMessage(chatId, text, env, extra = {}) {
-  return telegram("sendMessage", {
-    chat_id: chatId,
-    text,
-    ...extra
-  }, env);
-}
+async function sendMessage(chatId, text, env) {
+  const MAX_LENGTH = 3900;
 
-function voiceCacheKey(requestUrl, chatId) {
-  const origin = new URL(requestUrl).origin;
-  return new Request(`${origin}/__voice_selection/${chatId}`);
-}
+  while (text.length > 0) {
+    let part = text.slice(0, MAX_LENGTH);
 
-async function saveVoice(chatId, voiceId, requestUrl) {
-  const cache = caches.default;
-  const key = voiceCacheKey(requestUrl, chatId);
+    if (text.length > MAX_LENGTH) {
+      const splitAt = part.lastIndexOf("\n");
 
-  await cache.put(
-    key,
-    new Response(JSON.stringify({ voiceId }), {
-      headers: {
-        "Content-Type": "application/json",
-        "Cache-Control": "public, max-age=86400"
+      if (splitAt > 1000) {
+        part = part.slice(0, splitAt);
       }
-    })
-  );
+    }
+
+    await telegram("sendMessage", {
+      chat_id: chatId,
+      text: part
+    }, env);
+
+    text = text.slice(part.length);
+  }
 }
 
-async function getVoice(chatId, requestUrl) {
-  const cache = caches.default;
-  const saved = await cache.match(voiceCacheKey(requestUrl, chatId));
-
-  if (!saved) return null;
-
-  const data = await saved.json();
-  return data.voiceId || null;
-}
-
-async function clearVoice(chatId, requestUrl) {
-  const cache = caches.default;
-  await cache.delete(voiceCacheKey(requestUrl, chatId));
-}
-
-async function handleMessage(message, env, requestUrl) {
+async function handleMessage(message, env) {
   const chatId = message.chat.id;
   const text = (message.text || "").trim();
 
-  if (!text) return;
-
-  const command = text.split(/\s+/)[0].split("@")[0].toLowerCase();
-
-  if (command === "/start" || command === "/help") {
+  if (!text) {
     await sendMessage(
       chatId,
-      "Привет! 🎙 Я бот для озвучки текста.\n\n" +
-      "Как пользоваться:\n" +
-      "1. Напиши /voice и выбери голос.\n" +
-      "2. Отправь мне любой текст.\n" +
-      "3. Я верну тебе озвучку в MP3.\n\n" +
-      "Команды:\n" +
-      "/voice — выбрать голос\n" +
-      "/cancel — сбросить выбранный голос\n" +
-      "/help — помощь",
+      "Отправь мне текстом идею мультфильма или мультсериала.",
       env
     );
     return;
   }
 
-  if (command === "/voice") {
-    await sendMessage(chatId, "Загружаю голоса ElevenLabs...", env);
+  const command = text.split(/\s+/)[0]
+    .split("@")[0]
+    .toLowerCase();
 
-    const response = await fetch("https://api.elevenlabs.io/v1/voices", {
-      headers: {
-        "xi-api-key": env.ELEVENLABS_API_KEY
-      }
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      console.error("ElevenLabs voices error:", error);
-      await sendMessage(chatId, "Не удалось загрузить голоса. Попробуй позже.", env);
-      return;
-    }
-
-    const data = await response.json();
-    const voices = (data.voices || []).slice(0, 10);
-
-    if (!voices.length) {
-      await sendMessage(chatId, "ElevenLabs не вернул список голосов.", env);
-      return;
-    }
-
-    const keyboard = [];
-
-    for (const voice of voices) {
-      keyboard.push([{
-        text: voice.name,
-        callback_data: "voice:" + voice.voice_id
-      }]);
-    }
-
-    await sendMessage(chatId, "Выбери голос:", env, {
-      reply_markup: {
-        inline_keyboard: keyboard
-      }
-    });
+  if (command === "/start" || command === "/help") {
+    await sendMessage(
+      chatId,
+      "Привет! Я генератор профессиональных промптов для Claude.\n\n" +
+      "Напиши обычными словами идею своего мультфильма.\n\n" +
+      "Я передам её DeepSeek, который подготовит подробное " +
+      "техническое задание для Claude: сценарий, персонажи, " +
+      "анимация, озвучка, звук и создание готового MP4.\n\n" +
+      "Команды:\n" +
+      "/start — начать\n" +
+      "/help — помощь\n" +
+      "/prompt — создать промпт\n\n" +
+      "Можешь просто отправить идею следующим сообщением.",
+      env
+    );
     return;
   }
 
-  if (command === "/cancel") {
-    await clearVoice(chatId, requestUrl);
-    await sendMessage(chatId, "Выбранный голос сброшен. Напиши /voice, чтобы выбрать другой.", env);
-    return;
+  let userIdea = text;
+
+  if (command === "/prompt") {
+    userIdea = text.slice(text.split(/\s+/)[0].length).trim();
+
+    if (!userIdea) {
+      await sendMessage(
+        chatId,
+        "Напиши после /prompt свою идею мультфильма.",
+        env
+      );
+      return;
+    }
   }
 
-  if (text.startsWith("/")) {
+  if (text.startsWith("/") && command !== "/prompt") {
     await sendMessage(chatId, "Неизвестная команда. Напиши /help.", env);
     return;
   }
 
-  const voiceId = await getVoice(chatId, requestUrl);
-
-  if (!voiceId) {
-    await sendMessage(chatId, "Сначала выбери голос командой /voice.", env);
-    return;
-  }
-
-  await sendMessage(chatId, "🎙 Озвучиваю текст, подожди...", env);
-
-  const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_22050_32`,
-    {
-      method: "POST",
-      headers: {
-        "xi-api-key": env.ELEVENLABS_API_KEY,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_multilingual_v2"
-      })
-    }
-  );
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error("ElevenLabs TTS error:", error);
-    await sendMessage(chatId, "Не получилось создать озвучку. Проверь доступность голоса и лимиты ElevenLabs.", env);
-    return;
-  }
-
-  const audioBuffer = await response.arrayBuffer();
-  const form = new FormData();
-
-  form.append("chat_id", String(chatId));
-  form.append(
-    "audio",
-    new Blob([audioBuffer], { type: "audio/mpeg" }),
-    "voice.mp3"
-  );
-
-  const telegramResponse = await fetch(
-    `https://api.telegram.org/bot${env.BOT_TOKEN}/sendAudio`,
-    {
-      method: "POST",
-      body: form
-    }
-  );
-
-  const result = await telegramResponse.json();
-
-  if (!result.ok) {
-    console.error("Telegram audio error:", JSON.stringify(result));
-    await sendMessage(chatId, "Не удалось отправить аудио в Telegram.", env);
-  }
-}
-
-async function handleCallback(callback, env, requestUrl) {
-  const chatId = callback.message?.chat?.id;
-  const data = callback.data || "";
-
-  await telegram("answerCallbackQuery", {
-    callback_query_id: callback.id
+  await telegram("sendChatAction", {
+    chat_id: chatId,
+    action: "typing"
   }, env);
-
-  if (!chatId || !data.startsWith("voice:")) return;
-
-  const voiceId = data.slice("voice:".length);
-
-  if (!voiceId) return;
-
-  await saveVoice(chatId, voiceId, requestUrl);
 
   await sendMessage(
     chatId,
-    "✅ Голос выбран!\n\nТеперь отправь мне текст, который нужно озвучить.",
+    "🧠 DeepSeek анализирует твою идею и составляет подробный промпт для Claude. Это может занять немного времени.",
     env
   );
+
+  try {
+    const response = await fetch(
+      "https://api.deepseek.com/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${env.DEEPSEEK_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "deepseek-flash",
+          thinking: {
+            type: "enabled"
+          },
+          max_tokens: 12000,
+          temperature: 0.7,
+          messages: [
+            {
+              role: "system",
+              content: SYSTEM_PROMPT
+            },
+            {
+              role: "user",
+              content:
+                "Подготовь подробный готовый промпт для Claude " +
+                "по следующей идее пользователя.\n\n" +
+                "ИДЕЯ ПОЛЬЗОВАТЕЛЯ:\n" +
+                userIdea
+            }
+          ]
+        })
       }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("DeepSeek API error:", JSON.stringify(data));
+
+      if (response.status === 402) {
+        throw new Error("На балансе DeepSeek недостаточно средств.");
+      }
+
+      if (response.status === 401) {
+        throw new Error("DeepSeek не принял API-ключ. Проверь секрет.");
+      }
+
+      if (response.status === 429) {
+        throw new Error("Слишком много запросов. Попробуй немного позже.");
+      }
+
+      throw new Error("DeepSeek временно не смог обработать запрос.");
+    }
+
+    const result = data.choices?.[0]?.message?.content;
+
+    if (!result || !result.trim()) {
+      throw new Error("DeepSeek вернул пустой ответ. Попробуй ещё раз.");
+    }
+
+    const finishReason = data.choices?.[0]?.finish_reason;
+
+    if (finishReason === "length") {
+      await sendMessage(
+        chatId,
+        "⚠️ Ответ DeepSeek достиг ограничения длины. " +
+        "Попроси его продолжить или отправь идею ещё раз.",
+        env
+      );
+    }
+
+    const header =
+      "✅ ГОТОВЫЙ ПРОМПТ ДЛЯ CLAUDE\n\n" +
+      "Скопируй текст ниже и отправь его Claude.\n\n";
+
+    await sendMessage(chatId, header + result, env);
+
+  } catch (error) {
+    console.error("Generation error:", error.message);
+
+    await sendMessage(
+      chatId,
+      "❌ Не удалось создать промпт.\n\n" +
+      error.message +
+      "\n\nПопробуй ещё раз немного позже.",
+      env
+    );
+  }
+}
