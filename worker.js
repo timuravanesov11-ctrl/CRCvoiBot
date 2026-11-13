@@ -1,20 +1,22 @@
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-
     if (request.method === "GET") {
       return new Response("CRVoiceBot работает!");
     }
 
     if (request.method === "POST") {
-      const update = await request.json();
+      try {
+        const update = await request.json();
 
-      if (update.message) {
-        const chatId = update.message.chat.id;
-        const text = update.message.text || "";
+        if (update.message?.text?.startsWith("/start")) {
+          const chatId = update.message.chat.id;
 
-        if (text === "/start") {
-          await fetch(
+          if (!env.BOT_TOKEN) {
+            console.error("ОШИБКА: BOT_TOKEN не найден!");
+            return new Response("Token missing");
+          }
+
+          const response = await fetch(
             `https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`,
             {
               method: "POST",
@@ -27,10 +29,17 @@ export default {
               })
             }
           );
-        }
-      }
 
-      return new Response("OK");
+          const result = await response.json();
+
+          console.log("Telegram API:", JSON.stringify(result));
+        }
+
+        return new Response("OK");
+      } catch (error) {
+        console.error("Worker error:", error.message);
+        return new Response("Error", { status: 500 });
+      }
     }
 
     return new Response("OK");
